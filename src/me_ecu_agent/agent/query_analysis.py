@@ -177,6 +177,7 @@ def requires_spec_data(query: str) -> bool:
         "mbps",
         "bandwidth",
         "can fd",
+        "can bus",
         "ethernet",
         "npu",
         "tops",

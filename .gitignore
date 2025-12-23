@@ -86,3 +86,8 @@ faiss_index/
 cache/
 .tmp/
 .env
+
+# =====================
+# ML artifacts
+# =====================
+mlruns*/

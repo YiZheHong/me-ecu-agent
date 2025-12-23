@@ -6,6 +6,8 @@ This module defines the agent workflow with support for:
 2. Comparison queries (concurrent retrieval)
 3. Generic queries (no model constraint)
 4. Spec-based cross-model comparison
+
+All retrieval now includes metadata (source_filename, section_title, status).
 """
 import time
 import logging
@@ -15,12 +17,13 @@ from langgraph.graph import StateGraph, END
 
 from me_ecu_agent.agent.query_analysis import classify_query_intent, QueryIntent
 from me_ecu_agent.agent.agent_retrieval import (
+    retrieve_for_model,
     retrieve_for_models,
     retrieve_generic,
     retrieve_all_model_specs,
     retrieve_spec_for_model
 )
-from me_ecu_agent.agent.llm_util import (
+from me_ecu_agent.llm.llm_util import (
     build_answer_prompt,
     build_compare_prompt,
     build_spec_comparison_prompt,
@@ -118,6 +121,8 @@ def retrieve_single_node_impl(state: AgentState, retriever: Retriever, agent_con
     Retrieve context for a single model query.
     
     Called when: intent.is_single_model == True
+    
+    Now retrieves chunks with metadata (source_filename, section_title, status).
     """
     query = state["query"]
     intent = state["intent"]
@@ -135,13 +140,12 @@ def retrieve_single_node_impl(state: AgentState, retriever: Retriever, agent_con
     
     # Always retrieve regular chunks
     logger.debug(f"Retrieving regular chunks for model {model}")
-    model_results = retriever.query_by_model(model, query, top_k=agent_config.get("single_model_top_k", 3))
-    model_chunks = [doc.page_content for doc, _ in model_results]
+    model_chunks = retrieve_for_model(query, model, retriever, top_k=agent_config.get("single_model_top_k", 3))
     chunks.extend(model_chunks)
     
     logger.debug(f"Retrieved {len(chunks)} total chunks for model {model}")
     
-    # Format context
+    # Format context (now with metadata)
     state["context"] = format_context(chunks)
     return state
 
@@ -151,6 +155,9 @@ def retrieve_compare_node_impl(state: AgentState, retriever: Retriever, agent_co
     Retrieve context for multiple models.
     
     Called when: intent.is_compare == True
+    
+    Now retrieves chunks with metadata for each model.
+    If requires_specs is True, also retrieves specification chunks.
     """
     query = state["query"]
     intent = state["intent"]
@@ -158,14 +165,34 @@ def retrieve_compare_node_impl(state: AgentState, retriever: Retriever, agent_co
     
     logger.info(f"Retrieving for comparison: {models}")
     
-    # Retrieve for all models
-    contexts_by_model = retrieve_for_models(
-        query, models, retriever, top_k=agent_config.get("compare_top_k", 3)
-    )
+    # Dictionary to accumulate chunks for each model
+    contexts_by_model = {}
+    
+    for model in models:
+        model_chunks = []
+        
+        # Retrieve spec chunks if needed
+        if intent.requires_specs:
+            logger.debug(f"Retrieving spec chunks for model {model}")
+            spec_chunks = retrieve_spec_for_model(
+                model, retriever, top_k=agent_config.get("spec_top_k", 2)
+            )
+            model_chunks.extend(spec_chunks)
+        
+        # Always retrieve regular chunks
+        logger.debug(f"Retrieving regular chunks for model {model}")
+        regular_chunks = retrieve_for_model(
+            query, model, retriever, top_k=agent_config.get("compare_top_k", 3)
+        )
+        model_chunks.extend(regular_chunks)
+        
+        logger.debug(f"Retrieved {len(model_chunks)} total chunks for model {model}")
+        
+        contexts_by_model[model] = model_chunks
     
     logger.debug(f"Retrieved contexts for {len(contexts_by_model)} models")
     
-    # Format contexts
+    # Format contexts (now handles metadata)
     state["contexts_by_model"] = format_contexts_for_compare(
         contexts_by_model, max_chars_per_model=agent_config.get("max_chars_per_model", 2000)
     )
@@ -178,17 +205,19 @@ def retrieve_generic_node_impl(state: AgentState, retriever: Retriever, agent_co
     Retrieve context for generic queries (no model specified).
     
     Called when: intent.is_generic == True
+    
+    Now retrieves chunks with metadata.
     """
     query = state["query"]
     
     logger.info("Retrieving for generic query")
     
-    # Retrieve chunks without model constraint
+    # Retrieve chunks without model constraint (now returns dicts with metadata)
     chunks = retrieve_generic(query, retriever, top_k=agent_config.get("generic_top_k", 5))
     
     logger.debug(f"Retrieved {len(chunks)} chunks for generic query")
     
-    # Format context
+    # Format context (now with metadata)
     state["context"] = format_context(chunks)
     return state
 
@@ -203,17 +232,19 @@ def retrieve_model_specs_node_impl(state: AgentState, retriever: Retriever, agen
     - "Which model has the highest temperature rating?"
     - "What is the most robust model?"
     - "Which ECU has the most RAM?"
+    
+    Now retrieves specs with metadata for all models.
     """
     query = state["query"]
     
     logger.info("Retrieving specification chunks for all models")
     
-    # Retrieve spec chunks for all models
+    # Retrieve spec chunks for all models (now returns dicts with metadata)
     specs_by_model = retrieve_all_model_specs(retriever, top_k=agent_config.get("spec_top_k", 2))
     
     logger.info(f"Retrieved specs for {len(specs_by_model)} models")
     
-    # Format specs
+    # Format specs (now handles metadata)
     state["specs_by_model"] = format_specs_for_comparison(
         specs_by_model, max_chars_per_model=agent_config.get("max_chars_per_model_specs", 1000)
     )
@@ -227,6 +258,8 @@ def answer_node(state: AgentState) -> AgentState:
     Generate answer for single model or generic queries.
     
     Called when: intent.is_single_model or intent.is_generic
+    
+    Context now includes source attribution metadata.
     """
     query = state["query"]
     context = state["context"]
@@ -246,6 +279,8 @@ def compare_answer_node(state: AgentState) -> AgentState:
     Generate comparative answer for comparison queries.
     
     Called when: intent.is_compare == True
+    
+    Contexts now include source attribution metadata.
     """
     query = state["query"]
     contexts = state["contexts_by_model"]
@@ -272,6 +307,8 @@ def spec_comparison_answer_node(state: AgentState) -> AgentState:
     - "Which model has the highest operating temperature?"
     - "What's the most powerful ECU?"
     - "Which model is best for harsh environments?"
+    
+    Specs now include source attribution metadata.
     """
     query = state["query"]
     specs = state["specs_by_model"]
@@ -350,6 +387,7 @@ def build_graph(retriever: Retriever, agent_config: dict) -> StateGraph:
     
     Args:
         retriever: Retriever instance from QueryFactory.
+        agent_config: Configuration dict with top_k values and char limits.
     
     Returns:
         Compiled LangGraph application.

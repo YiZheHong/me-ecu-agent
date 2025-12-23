@@ -95,7 +95,7 @@ def get_agent_config() -> dict:
         "compare_top_k": 3,
         "single_model_top_k": 3,
         "spec_top_k": 2,
-        "max_chars_per_model": 500,
+        "max_chars_per_model": 1000,
         "max_chars_per_model_specs": 1000,
     }
     
