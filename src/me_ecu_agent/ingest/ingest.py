@@ -1,6 +1,7 @@
 from pathlib import Path
 import sqlite3
 import json
+import logging
 from typing import List, Optional
 
 from langchain_core.documents import Document
@@ -13,6 +14,9 @@ from .util import (
     extract_doc_meta,
     build_documents,
 )
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 # -----------------------------
@@ -32,6 +36,7 @@ def get_embeddings(config: Optional[IngestConfig] = None) -> HuggingFaceEmbeddin
     if config is None:
         raise ValueError("Configuration must be provided")
     
+    logger.debug(f"Initializing embeddings with model: {config.embedding_model}")
     return HuggingFaceEmbeddings(
         model_name=config.embedding_model
     )
@@ -49,6 +54,7 @@ def init_meta_db(db_path: Path) -> None:
     Args:
         db_path: Path to SQLite database file
     """
+    logger.debug(f"Initializing metadata database: {db_path}")
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
@@ -69,6 +75,7 @@ def init_meta_db(db_path: Path) -> None:
 
     conn.commit()
     conn.close()
+    logger.debug("Metadata database initialized successfully")
 
 
 def save_doc_metas(metas: List[DocMeta], db_path: Path) -> None:
@@ -81,6 +88,7 @@ def save_doc_metas(metas: List[DocMeta], db_path: Path) -> None:
         metas: List of DocMeta objects to save
         db_path: Path to SQLite database file
     """
+    logger.info(f"Saving {len(metas)} document metadata records to database")
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
@@ -100,9 +108,11 @@ def save_doc_metas(metas: List[DocMeta], db_path: Path) -> None:
                 m.status,
             ),
         )
+        logger.debug(f"Saved metadata for: {m.source_filename} (doc_uid: {m.doc_uid[:8]}...)")
 
     conn.commit()
     conn.close()
+    logger.info(f"Successfully saved metadata to {db_path}")
 
 
 # -----------------------------
@@ -125,8 +135,13 @@ def build_and_persist_vectorstore(
     Returns:
         FAISS vectorstore instance
     """
+    logger.info(f"Building vectorstore from {len(documents)} documents")
     vectorstore = FAISS.from_documents(documents, embeddings)
+    
+    logger.info(f"Persisting vectorstore to {persist_dir}")
     vectorstore.save_local(str(persist_dir))
+    logger.info("Vectorstore successfully persisted")
+    
     return vectorstore
 
 
@@ -137,7 +152,6 @@ def build_and_persist_vectorstore(
 def ingest(
     rebuild: bool = False,
     config: IngestConfig = None,
-    verbose: bool = True,
 ) -> FAISS:
     """
     Ingest markdown documents into:
@@ -147,7 +161,6 @@ def ingest(
     Args:
         rebuild: If True, rebuild from raw markdown. If False, load from disk.
         config: IngestConfig instance.
-        verbose: If True, print progress information.
     
     Returns:
         FAISS vectorstore instance
@@ -178,16 +191,15 @@ def ingest(
     if config is None:
         raise ValueError("Configuration must be provided")
     
-    if verbose:
-        print("="*80)
-        print("INGESTION CONFIGURATION")
-        print("="*80)
-        print(config)
-        print()
+    logger.info("="*80)
+    logger.info("INGESTION CONFIGURATION")
+    logger.info("="*80)
+    logger.info(f"Configuration:\n{config}")
 
     # Ensure directories exist
     config.meta_dir.mkdir(parents=True, exist_ok=True)
     config.vector_dir.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"Ensured directories exist: meta_dir={config.meta_dir}, vector_dir={config.vector_dir}")
     
     # Get embeddings
     embeddings = get_embeddings(config)
@@ -196,14 +208,12 @@ def ingest(
         # -----------------------------
         # Rebuild from raw markdown
         # -----------------------------
-        if verbose:
-            print("="*80)
-            print("REBUILDING FROM RAW MARKDOWN")
-            print("="*80)
-            print(f"Data directory: {config.data_dir}")
-            print(f"Vector directory: {config.vector_dir}")
-            print(f"Meta database: {config.meta_db_path}")
-            print()
+        logger.info("="*80)
+        logger.info("REBUILDING FROM RAW MARKDOWN")
+        logger.info("="*80)
+        logger.info(f"Data directory: {config.data_dir}")
+        logger.info(f"Vector directory: {config.vector_dir}")
+        logger.info(f"Meta database: {config.meta_db_path}")
         
         all_documents: List[Document] = []
         all_metas: List[DocMeta] = []
@@ -213,17 +223,13 @@ def ingest(
 
         # Process each markdown file
         md_files = list(config.data_dir.rglob("*.md"))
-        
-        if verbose:
-            print(f"Found {len(md_files)} markdown files to process")
-            print()
+        logger.info(f"Found {len(md_files)} markdown files to process")
         
         for i, md_path in enumerate(md_files, 1):
-            if verbose:
-                print(f"[{i}/{len(md_files)}] Processing: {md_path.name}")
+            logger.info(f"[{i}/{len(md_files)}] Processing: {md_path.name}")
             
             # Extract document-level metadata
-            meta = extract_doc_meta(md_path, verbose=False)
+            meta = extract_doc_meta(md_path)
             all_metas.append(meta)
 
             # Build chunk-level documents with config
@@ -232,65 +238,43 @@ def ingest(
                 meta,
                 max_chars=config.chunk_size,
                 overlap_chars=config.chunk_overlap,
-                verbose=verbose
             )
             all_documents.extend(docs)
-            
-            if verbose:
-                print(f"  → Generated {len(docs)} chunks")
+            logger.info(f"  → Generated {len(docs)} chunks")
 
-        if verbose:
-            print()
-            print(f"Total chunks generated: {len(all_documents)}")
-            print(f"Total documents processed: {len(all_metas)}")
-            print()
-            print("Building and persisting vectorstore...")
+        logger.info(f"Total chunks generated: {len(all_documents)}")
+        logger.info(f"Total documents processed: {len(all_metas)}")
         
+        logger.info("Building and persisting vectorstore...")
         vectorstore = build_and_persist_vectorstore(
             all_documents,
             config.vector_dir,
             embeddings
         )
-        
-        if verbose:
-            print(f"✓ Vectorstore saved to {config.vector_dir}")
-            print()
+        logger.info(f"✓ Vectorstore saved to {config.vector_dir}")
 
         # Persist DocMeta to SQLite
-        if verbose:
-            print("Saving metadata to database...")
-        
         save_doc_metas(all_metas, config.meta_db_path)
-        
-        if verbose:
-            print(f"✓ Metadata saved to {config.meta_db_path}")
-            print()
+        logger.info(f"✓ Metadata saved to {config.meta_db_path}")
 
     else:
         # -----------------------------
         # Load existing artifacts
         # -----------------------------
-        if verbose:
-            print("="*80)
-            print("LOADING EXISTING VECTORSTORE")
-            print("="*80)
-            print(f"Vector directory: {config.vector_dir}")
-            print()
+        logger.info("="*80)
+        logger.info("LOADING EXISTING VECTORSTORE")
+        logger.info("="*80)
+        logger.info(f"Vector directory: {config.vector_dir}")
         
         vectorstore = FAISS.load_local(
             str(config.vector_dir),
             embeddings,
             allow_dangerous_deserialization=True,
         )
-        
-        if verbose:
-            print(f"✓ Vectorstore loaded from {config.vector_dir}")
-            print()
+        logger.info(f"✓ Vectorstore loaded from {config.vector_dir}")
 
-    if verbose:
-        print("="*80)
-        print("INGESTION COMPLETE")
-        print("="*80)
-        print()
+    logger.info("="*80)
+    logger.info("INGESTION COMPLETE")
+    logger.info("="*80)
 
     return vectorstore

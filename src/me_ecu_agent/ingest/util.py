@@ -1,10 +1,14 @@
 import os
 import re
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any, NamedTuple
 from langchain_core.documents import Document
 from me_ecu_agent.data_schema import DocMeta
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # Data structures for intermediate representations
@@ -69,6 +73,7 @@ def parse_filename(filename: str) -> Tuple[str, str, str]:
     else:
         model_type = tail  # Base / Plus
 
+    logger.debug(f"Parsed filename '{filename}': product_line={product_line}, series={series}, model_type={model_type}")
     return product_line, series, model_type
 
 def resolve_model_inheritance(
@@ -80,7 +85,9 @@ def resolve_model_inheritance(
     """
     if model_type == "Plus":
         # Plus always inherits from Base of the same series
-        return f"{series}-Base"
+        inherits_from = f"{series}-Base"
+        logger.debug(f"Resolved inheritance: {series}-{model_type} inherits from {inherits_from}")
+        return inherits_from
 
     return None
 
@@ -99,19 +106,20 @@ def extract_covered_models(text: str, product_line: str) -> List[str]:
     )
 
     models = sorted({m.group(1) for m in pattern.finditer(text)})
+    logger.debug(f"Extracted {len(models)} covered models for product line '{product_line}': {models}")
     return models
 
-def extract_doc_meta(md_path: Path, verbose: bool = True) -> DocMeta:
+def extract_doc_meta(md_path: Path) -> DocMeta:
     """
     Extract document-level metadata from markdown file.
     
     Args:
         md_path: Path to markdown file
-        verbose: If True, print metadata
     
     Returns:
         DocMeta object
     """
+    logger.debug(f"Extracting metadata from: {md_path.name}")
     raw_text = md_path.read_text(encoding="utf-8", errors="ignore")
     doc_uid = sha256_text(raw_text)
 
@@ -133,9 +141,7 @@ def extract_doc_meta(md_path: Path, verbose: bool = True) -> DocMeta:
         status=status,
     )
     
-    if verbose:
-        print(meta)
-    
+    logger.debug(f"Extracted metadata: {meta}")
     return meta
 
 # ============================================================
@@ -146,7 +152,14 @@ def extract_h1_title(text: str) -> Optional[str]:
     """Extract H1 title from document."""
     H1_PATTERN = re.compile(r"^# (.+)", re.MULTILINE)
     match = H1_PATTERN.search(text)
-    return match.group(1).strip() if match else None
+    title = match.group(1).strip() if match else None
+    
+    if title:
+        logger.debug(f"Extracted H1 title: {title}")
+    else:
+        logger.debug("No H1 title found in document")
+    
+    return title
 
 def split_by_sections(text: str) -> List[Section]:
     """
@@ -183,12 +196,15 @@ def split_by_sections(text: str) -> List[Section]:
     
     # If no sections found, create a default one
     if not sections:
+        logger.debug("No sections found, using default section")
         sections = [Section(
             start=0,
             end=0,
             title="Document",
             section_type="default"
         )]
+    else:
+        logger.debug(f"Found {len(sections)} sections")
     
     return sections
 
@@ -215,7 +231,12 @@ def is_specification_section(section_title: str) -> bool:
     ]
     
     title_lower = section_title.lower()
-    return any(keyword in title_lower for keyword in spec_keywords)
+    is_spec = any(keyword in title_lower for keyword in spec_keywords)
+    
+    if is_spec:
+        logger.debug(f"Section '{section_title}' identified as specification section")
+    
+    return is_spec
 
 def create_chunks_from_section(
     section_text: str,
@@ -258,6 +279,7 @@ def create_chunks_from_section(
             chunk_index=0,
             chunk_type=chunk_type
         ))
+        logger.debug(f"Created single chunk for section '{section_title}' (type={chunk_type}, length={len(section_text)})")
     else:
         # Multiple chunks with overlap
         start = 0
@@ -278,6 +300,8 @@ def create_chunks_from_section(
                 chunk_idx += 1
             
             start = end - overlap_chars
+        
+        logger.debug(f"Split section '{section_title}' into {len(chunks)} chunks (type={chunk_type}, total_length={len(section_text)})")
     
     return chunks
 
@@ -302,6 +326,8 @@ def chunk_document(
     Returns:
         List of Chunk objects
     """
+    logger.debug(f"Starting document chunking (max_chars={max_chars}, overlap={overlap_chars})")
+    
     # Extract H1 title
     h1_title = extract_h1_title(text)
     
@@ -322,6 +348,7 @@ def chunk_document(
         
         section_text = text[section_start:section_end].strip()
         if not section_text:
+            logger.debug(f"Skipping empty section: {section.title}")
             continue
         
         # Create chunks for this section
@@ -335,6 +362,7 @@ def chunk_document(
         
         all_chunks.extend(section_chunks)
     
+    logger.debug(f"Document chunking complete: generated {len(all_chunks)} total chunks")
     return all_chunks
 
 # ============================================================
@@ -346,7 +374,6 @@ def build_documents(
     meta: DocMeta,
     max_chars: int = 1500,
     overlap_chars: int = 300,
-    verbose: bool = True,
 ) -> List[Document]:
     """
     Build LangChain documents from markdown file.
@@ -356,18 +383,18 @@ def build_documents(
         meta: Document metadata
         max_chars: Maximum characters per chunk
         overlap_chars: Overlap between chunks for long sections
-        verbose: If True, print chunk information
     
     Returns:
         List of Document objects
     """
+    logger.debug(f"Building documents from: {md_path.name}")
     text = md_path.read_text(encoding="utf-8", errors="ignore")
     chunks = chunk_document(text, max_chars=max_chars, overlap_chars=overlap_chars)
 
-    if verbose:
-        for c in chunks:
-            print(c)
-            print('-------------------------')
+    # Log detailed chunk information at DEBUG level
+    for i, c in enumerate(chunks):
+        logger.debug(f"Chunk {i}: section='{c.section_title}', type={c.chunk_type}, "
+                    f"index={c.chunk_index}, length={len(c.content)}")
 
     documents = []
     for chunk in chunks:
@@ -390,4 +417,6 @@ def build_documents(
                 },
             )
         )
+    
+    logger.debug(f"Built {len(documents)} documents from {md_path.name}")
     return documents

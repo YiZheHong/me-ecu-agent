@@ -1,0 +1,109 @@
+question,expected_answer,actual_answer,evaluation_criteria,intent_type,models,requires_specs,status,execution_time
+What is the maximum operating temperature for the ECU-750?,The maximum operating temperature for the ECU-750 is +85°C. The ECU-750 operates in a temperature range of -40°C to +85°C.,"Based on the provided documents, the maximum operating temperature for the ECU-750 is **+85°C**.",Accuracy of temperature specification; Source identification (ECU-700 manual),single_model,['ECU-750'],True,PASS,2.50s
+How much RAM does the ECU-850 have?,The ECU-850 has 2 GB of LPDDR4 RAM.,The ECU-850 has **2 GB** of LPDDR4 RAM.,Correct memory specification; Source identification (ECU-800 base specs),single_model,['ECU-850'],True,PASS,1.82s
+What are the AI capabilities of the ECU-850b?,The ECU-850b features a dedicated Neural Processing Unit (NPU) capable of 5 TOPS (Tera Operations Per Second) for AI acceleration. This makes it suitable for edge AI workloads.,"Based on the provided context, the AI capabilities of the ECU-850b are:
+
+- A dedicated **Neural Processing Unit (NPU)** AI accelerator with a performance of **5 TOPS**.
+- **4 GB of LPDDR4 RAM** to support larger AI models.",NPU specification accuracy; Understanding of AI capabilities,single_model,['ECU-850b'],False,PASS,2.93s
+What are the differences between ECU-850 and ECU-850b?,"The ECU-850b is an enhanced variant of the ECU-850 with three key upgrades: Dedicated AI Accelerator (NPU capable of 5 TOPS), Increased Memory (4 GB LPDDR4 RAM vs 2 GB), Higher Clock Speed (Cortex-A53 cores at 1.5 GHz vs 1.2 GHz).","# Comparison: ECU-850 vs. ECU-850b
+
+Based on the provided context, here is a detailed comparison of the two models.
+
+## Overview
+Both models are part of the **ECU-800 Series** for advanced automotive applications. The **ECU-850b** is explicitly described as an enhanced variant of the baseline **ECU-850**.
+
+## Key Differences
+
+| Feature | ECU-850 (Baseline) | ECU-850b (Enhanced Variant) |
+| :--- | :--- | :--- |
+| **AI/ML Acceleration** | Basic capability (see ECU-850b for enhanced NPU) | **Dedicated AI Accelerator:** Neural Processing Unit (NPU) capable of **5 TOPS**. |
+| **Processor Clock Speed** | Information not provided in context. | **Higher Clock Speed:** ARM Cortex-A53 cores are clocked at **1.5 GHz**. |
+| **Memory (RAM)** | Information not provided in context. | **Increased Memory:** **4 GB LPDDR4** to support larger AI models. |
+| **Detailed Specifications Table** | Not provided in context. | Provided (see context chunk 3 for full specs on processor, NPU, memory, storage, interfaces, power, and temperature). |
+
+## Key Similarities
+*   **Series & Platform:** Both belong to the ECU-800 Series for advanced automotive applications (e.g., ADAS, infotainment).
+*   **Core Features:** The ECU-850b **includes all features of the base ECU-850**. According to the ECU-850 context, this includes:
+    *   Over-the-Air (OTA) Update Capability
+    *   Secure Boot and Hardware Security Module (HSM)
+    *   Application deployment via Docker containers on a Yocto-based Linux OS.
+
+## Summary
+The **ECU-850b** is a direct upgrade of the **ECU-850**, specifically optimized for edge AI workloads. The primary enhancements are the addition of a powerful 5 TOPS NPU, increased RAM (4 GB), and a higher processor clock speed (1.5 GHz). It retains all the foundational software, security, and connectivity features of the base model. Detailed hardware specifications are only provided for the ECU-850b.",Accurate comparison; Synthesis of multiple specifications; Clear differentiation,compare,"['ECU-850', 'ECU-850b']",False,PASS,14.12s
+Compare the CAN bus capabilities of ECU-750 and ECU-850.,"The ECU-750 (700 series) has a single channel CAN FD interface with speeds up to 1 Mbps, while the ECU-850 (800 series) features a dual channel CAN FD interface with speeds up to 2 Mbps per channel. The ECU-850 offers significantly better CAN bus performance and redundancy.","# Comparison of CAN Bus Capabilities: ECU-750 vs. ECU-850
+
+Based solely on the provided context, here is a detailed comparison of the CAN bus capabilities for the two models.
+
+## Summary Table
+
+| Feature | ECU-750 | ECU-850 |
+| :--- | :--- | :--- |
+| **Number of Channels** | Single Channel | **Dual Channel** |
+| **Protocol Support** | CAN FD compatible | CAN FD |
+| **Maximum Speed** | Up to **1 Mbps** | Up to **2 Mbps per channel** |
+| **Diagnostic Capability** | Basic DTCs via CAN | Information not provided in context |
+| **OTA Updates via CAN** | Not supported | Supported (as a general feature) |
+
+## Detailed Comparison
+
+### ECU-750
+*   **Interface:** Features a **single-channel** CAN interface.
+*   **Protocol & Speed:** It is **CAN FD compatible** with a maximum data rate of **up to 1 Mbps**.
+*   **Diagnostics:** Provides basic diagnostic trouble codes (DTCs) via its CAN bus.
+*   **OTA Updates:** **Does not support** Over-the-Air updates on this hardware platform.
+
+### ECU-850
+*   **Interface:** Features a more advanced **dual-channel** CAN interface.
+*   **Protocol & Speed:** Supports **CAN FD** at a higher maximum speed of **up to 2 Mbps per channel**.
+*   **OTA Updates:** The model supports Over-the-Air (OTA) updates as a general feature (specific transport mechanism not detailed in context).
+*   **Diagnostics:** The provided context does not specify diagnostic capabilities related to the CAN bus.
+
+## Key Differences
+1.  **Channel Count:** The ECU-850 has dual CAN channels, allowing it to connect to two separate CAN networks simultaneously, while the ECU-750 has only one.
+2.  **Speed:** The maximum CAN FD speed per channel on the ECU-850 (2 Mbps) is double that of the ECU-750 (1 Mbps).
+3.  **Modern Features:** The ECU-850 supports OTA updates, a capability absent in the ECU-750.
+
+## Missing Information
+*   The context for the **ECU-850 does not specify** if it provides diagnostic trouble codes (DTCs) via CAN or the details of its diagnostic protocol.",Cross-document retrieval; Accurate technical comparison; Performance analysis,compare,"['ECU-750', 'ECU-850']",False,PASS,14.66s
+What is the power consumption of the ECU-850b under load?,The ECU-850b consumes 1.7A under load and 550mA when idle.,The power consumption of the ECU-850b under load is **1.7A**.,Accurate power specification; Distinction between load and idle states,single_model,['ECU-850b'],True,PASS,1.85s
+Which ECU models support Over-the-Air (OTA) updates?,"OTA updates are supported by the ECU-800 Series (ECU-850 and ECU-850b). The ECU-700 Series (ECU-750) does not support OTA updates, as explicitly stated in its documentation.","Based solely on the provided context:
+
+*   The **ECU-750** (ECU-700 Series) explicitly does **not** support Over-the-Air (OTA) updates.
+*   The **ECU-850** and **ECU-850b** (ECU-800 Series) are mentioned in chunks that list ""Over-the-Air (OTA) Update Capability"" as a feature, indicating they **do** support OTA updates.
+
+The provided documents do not specify information about OTA support for any other ECU models.",Feature availability across series; Negative confirmation for unsupported models,generic,[],False,PASS,4.48s
+How does the storage capacity compare across all ECU models?,Storage capacity varies significantly across the series: ECU-750 (700 series): 2 MB Internal Flash; ECU-850 (800 series): 16 GB eMMC; ECU-850b (800 series): 32 GB eMMC. The 800 series offers substantially more storage than the legacy 700 series.,"Based solely on the provided technical specifications, here is a comparison of storage capacity across all ECU models:
+
+### Storage Capacity Comparison Table
+
+| ECU Model | Storage Type | Storage Capacity |
+| :--- | :--- | :--- |
+| **ECU-750** | Internal Flash | **2 MB** |
+| **ECU-850** | eMMC | **16 GB** |
+| **ECU-850b** | eMMC | **32 GB** |
+
+### Key Findings:
+1.  **ECU-750** has the smallest storage capacity at **2 MB**.
+2.  **ECU-850** has a significantly larger capacity of **16 GB**.
+3.  **ECU-850b** has the largest storage capacity at **32 GB**, which is double that of the ECU-850.
+
+### Summary:
+Storage capacity increases substantially across the model range. The entry-level **ECU-750** uses flash memory measured in Megabytes (MB), while the more advanced **ECU-850** and **ECU-850b** use embedded MultiMediaCard (eMMC) storage measured in Gigabytes (GB). The **ECU-850b** offers the highest storage capacity among the listed models.",Complete storage comparison; Understanding of capacity differences; Series analysis,spec_comparison,[],True,PASS,8.77s
+Which ECU can operate in the harshest temperature conditions?,"The ECU-850 and ECU-850b (800 series) can operate in the harshest temperature conditions, with an operating range of -40°C to +105°C. The ECU-750 (700 series) has a more limited range of -40°C to +85°C, making it 20°C less tolerant at the high end.","Based solely on the provided technical specifications, the **ECU-850** and **ECU-850b** are tied for being able to operate in the harshest temperature conditions.
+
+**Analysis of Operating Temperature Ranges:**
+
+| ECU Model | Operating Temperature Range |
+| :--- | :--- |
+| **ECU-750** | **-40°C to +85°C** |
+| **ECU-850** | **-40°C to +105°C** |
+| **ECU-850b** | **-40°C to +105°C** |
+
+**Conclusion:**
+Both the **ECU-850** and **ECU-850b** have a maximum operating temperature of **+105°C**, which is **20°C higher** than the ECU-750's maximum of **+85°C**. All three models share the same lower limit of **-40°C**.
+
+Therefore, the ECUs capable of operating in the harshest (hottest) conditions are the **ECU-850** and **ECU-850b**.",Temperature range comparison; Identification of best performing model; Quantitative analysis,spec_comparison,[],True,PASS,7.67s
+How do you enable the NPU on the ECU-850b?,"To enable the NPU on the ECU-850b, use the following driver command: me-driver-ctl --enable-npu --mode=performance","To enable the NPU on the ECU-850b, use the driver command:  
+```bash
+me-driver-ctl --enable-npu --mode=performance
+```",Exact command syntax; Configuration procedure knowledge,single_model,['ECU-850b'],True,PASS,2.18s

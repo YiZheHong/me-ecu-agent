@@ -30,10 +30,11 @@ class QueryConfig:
     
     # Retrieval parameters
     default_top_k: int = 5
-    retrieval_buffer_k: int = 40
-    
-    # Optional: embedding model configuration
-    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    default_threshold_score: float = 1.5
+    retrieval_buffer_k: int = 20
+
+    # Embedding model configuration
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     
     # Feature flags
     enable_source_tracking: bool = True

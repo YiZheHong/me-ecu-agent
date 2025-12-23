@@ -3,7 +3,8 @@ Query analysis: intent classification and model extraction.
 
 This module analyzes user queries to determine:
 1. What models are mentioned (if any)
-2. What type of query it is (single, compare, generic)
+2. What type of query it is (single, compare, generic, spec_comparison)
+3. Whether the query requires specification data
 """
 import re
 from typing import List, Optional, Literal
@@ -19,8 +20,9 @@ class QueryIntent:
     """
     Structured representation of query intent.
     """
-    intent_type: Literal["single_model", "compare", "generic"]
+    intent_type: Literal["single_model", "compare", "generic", "spec_comparison"]
     models: List[str]  # Empty for generic queries
+    requires_specs: bool = False  # True if query needs specification data
     
     @property
     def is_single_model(self) -> bool:
@@ -33,6 +35,10 @@ class QueryIntent:
     @property
     def is_generic(self) -> bool:
         return self.intent_type == "generic"
+    
+    @property
+    def is_spec_comparison(self) -> bool:
+        return self.intent_type == "spec_comparison"
 
 
 def extract_models_from_query(query: str) -> List[str]:
@@ -111,48 +117,166 @@ def is_comparison_query(query: str) -> bool:
     return any(keyword in query_lower for keyword in comparison_keywords)
 
 
-def classify_query_intent(query: str) -> QueryIntent:
+def requires_spec_data(query: str) -> bool:
     """
-    Classify the query into one of three intent types.
+    Detect if the query requires specification/technical data.
     
-    Classification logic:
-    1. Extract all mentioned models
-    2. If 0 models → generic
-    3. If 1 model → single_model
-    4. If 2+ models → compare (if comparison keywords present)
-    5. If 2+ models but no comparison keywords → treat as single_model (use first)
+    This is used to determine if we need to retrieve spec chunks
+    for cross-model comparison queries.
     
     Args:
         query: User query string.
     
     Returns:
-        QueryIntent object with intent_type and models.
+        True if query needs specification data.
+    
+    Examples:
+        >>> requires_spec_data("What is the most robust model in harsh environment?")
+        True
+        
+        >>> requires_spec_data("Which model has the highest temperature rating?")
+        True
+        
+        >>> requires_spec_data("Which model has more RAM?")
+        True
+        
+        >>> requires_spec_data("What is CAN bus?")
+        False
+        
+        >>> requires_spec_data("How do I configure the ECU-850?")
+        False
+    """
+    query_lower = query.lower()
+    
+    # Technical specification keywords
+    spec_keywords = [
+        # Performance metrics
+        "most robust",
+        "highest",
+        "lowest",
+        "maximum",
+        "minimum",
+        "best performance",
+        "fastest",
+        "slowest",
+        "more powerful",
+        "less power",
+        
+        # Specific technical attributes
+        "temperature",
+        "temp",
+        "operating temp",
+        "ram",
+        "memory",
+        "storage",
+        "processor",
+        "cpu",
+        "power consumption",
+        "voltage",
+        "current",
+        "mbps",
+        "bandwidth",
+        "can fd",
+        "ethernet",
+        "npu",
+        "tops",
+        
+        # Comparative questions about specs
+        "which model has",
+        "which one has",
+        "what model has",
+        "does any model have",
+        "which ecu has",
+        
+        # Superlative comparisons
+        "better for",
+        "suited for",
+        "recommended for",
+        "harsh environment",
+        "high temperature",
+        "low power",
+        
+        # Technical specifications
+        "specification",
+        "specs",
+        "technical",
+        "datasheet",
+    ]
+    
+    return any(keyword in query_lower for keyword in spec_keywords)
+
+
+def classify_query_intent(query: str) -> QueryIntent:
+    """
+    Classify the query into one of four intent types.
+    
+    Classification logic:
+    1. Extract all mentioned models
+    2. Check if query requires specs
+    3. If 0 models + requires_specs → spec_comparison (cross-model spec query)
+    4. If 0 models → generic
+    5. If 1 model → single_model
+    6. If 2+ models + comparison keywords → compare
+    7. If 2+ models but no comparison keywords → treat as single_model (use first)
+    
+    Args:
+        query: User query string.
+    
+    Returns:
+        QueryIntent object with intent_type, models, and requires_specs flag.
     
     Examples:
         >>> classify_query_intent("What is the max temp for ECU-750?")
-        QueryIntent(intent_type='single_model', models=['ECU-750'])
+        QueryIntent(intent_type='single_model', models=['ECU-750'], requires_specs=True)
         
         >>> classify_query_intent("Compare ECU-750 and ECU-850")
-        QueryIntent(intent_type='compare', models=['ECU-750', 'ECU-850'])
+        QueryIntent(intent_type='compare', models=['ECU-750', 'ECU-850'], requires_specs=False)
+        
+        >>> classify_query_intent("What is the most robust model?")
+        QueryIntent(intent_type='spec_comparison', models=[], requires_specs=True)
         
         >>> classify_query_intent("What is CAN bus?")
-        QueryIntent(intent_type='generic', models=[])
+        QueryIntent(intent_type='generic', models=[], requires_specs=False)
     """
     models = extract_models_from_query(query)
+    needs_specs = requires_spec_data(query)
     
-    # Case 1: No models mentioned
+    # Case 1: No models mentioned + needs specs → spec comparison
+    if len(models) == 0 and needs_specs:
+        return QueryIntent(
+            intent_type="spec_comparison",
+            models=[],
+            requires_specs=True
+        )
+    
+    # Case 2: No models mentioned → generic
     if len(models) == 0:
-        return QueryIntent(intent_type="generic", models=[])
+        return QueryIntent(
+            intent_type="generic",
+            models=[],
+            requires_specs=False
+        )
     
-    # Case 2: Single model mentioned
+    # Case 3: Single model mentioned
     if len(models) == 1:
-        return QueryIntent(intent_type="single_model", models=models)
+        return QueryIntent(
+            intent_type="single_model",
+            models=models,
+            requires_specs=needs_specs
+        )
     
-    # Case 3: Multiple models + comparison keywords
+    # Case 4: Multiple models + comparison keywords
     if is_comparison_query(query):
-        return QueryIntent(intent_type="compare", models=models)
+        return QueryIntent(
+            intent_type="compare",
+            models=models,
+            requires_specs=needs_specs
+        )
     
-    # Case 4: Multiple models but no comparison intent
+    # Case 5: Multiple models but no comparison intent
     # Treat as single_model query for the first mentioned model
-    # (This is a fallback; most multi-model queries should have comparison keywords)
-    return QueryIntent(intent_type="single_model", models=[models[0]])
+    return QueryIntent(
+        intent_type="single_model",
+        models=[models[0]],
+        requires_specs=needs_specs
+    )

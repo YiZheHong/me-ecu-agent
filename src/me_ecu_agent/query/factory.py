@@ -157,7 +157,7 @@ class QueryFactory:
         meta_store = QueryFactory._initialize_meta_store(config)
         vectorstore = QueryFactory._load_vectorstore(
             config.vector_dir,
-            config.embedding_model_name,
+            config.embedding_model,
         )
         
         # Create and return Retriever
@@ -187,23 +187,4 @@ class QueryFactory:
             >>> retriever = QueryFactory.from_dict(config_dict)
         """
         config = QueryConfig.from_dict(config_dict)
-        print(config)
-        return QueryFactory.create(config)
-        """
-        Create a Retriever from a JSON configuration file.
-        
-        Args:
-            json_path: Path to JSON configuration file
-        
-        Returns:
-            Fully initialized Retriever instance
-        
-        Raises:
-            FileNotFoundError: If JSON file doesn't exist
-            ValueError: If configuration is invalid
-        
-        Example:
-            >>> retriever = QueryFactory.from_json_file("config/query.json")
-        """
-        config = QueryConfig.from_json_file(json_path)
         return QueryFactory.create(config)
