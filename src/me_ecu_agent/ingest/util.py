@@ -101,8 +101,17 @@ def extract_covered_models(text: str, product_line: str) -> List[str]:
     models = sorted({m.group(1) for m in pattern.finditer(text)})
     return models
 
-def extract_doc_meta(md_path: Path) -> DocMeta:
-    """Extract document-level metadata from markdown file."""
+def extract_doc_meta(md_path: Path, verbose: bool = True) -> DocMeta:
+    """
+    Extract document-level metadata from markdown file.
+    
+    Args:
+        md_path: Path to markdown file
+        verbose: If True, print metadata
+    
+    Returns:
+        DocMeta object
+    """
     raw_text = md_path.read_text(encoding="utf-8", errors="ignore")
     doc_uid = sha256_text(raw_text)
 
@@ -124,56 +133,10 @@ def extract_doc_meta(md_path: Path) -> DocMeta:
         status=status,
     )
     
-    print(meta)
+    if verbose:
+        print(meta)
+    
     return meta
-
-# ============================================================
-# Layer 1: Content Extraction
-# ============================================================
-
-def extract_tables(text: str) -> List[TableMatch]:
-    """
-    Extract all markdown tables from text.
-    
-    Returns:
-        List of TableMatch objects with start, end, and content.
-    """
-    TABLE_PATTERN = re.compile(
-        r"(\|.+\|[\r\n]+\|[\s\-:|]+\|[\r\n]+(?:\|.+\|[\r\n]*)+)", 
-        re.MULTILINE
-    )
-    
-    tables = []
-    for match in TABLE_PATTERN.finditer(text):
-        tables.append(TableMatch(
-            start=match.start(),
-            end=match.end(),
-            content=match.group(1).strip()
-        ))
-    
-    return tables
-
-def extract_code_blocks(text: str) -> List[TableMatch]:
-    """
-    Extract code blocks from text (for future use).
-    
-    Returns:
-        List of code block matches (using TableMatch structure for simplicity).
-    """
-    CODE_PATTERN = re.compile(
-        r"```[\w]*\n(.*?)\n```",
-        re.MULTILINE | re.DOTALL
-    )
-    
-    blocks = []
-    for match in CODE_PATTERN.finditer(text):
-        blocks.append(TableMatch(
-            start=match.start(),
-            end=match.end(),
-            content=match.group(0).strip()
-        ))
-    
-    return blocks
 
 # ============================================================
 # Layer 2: Section Splitting
@@ -371,19 +334,40 @@ def chunk_document(
         )
         
         all_chunks.extend(section_chunks)
-    for c in all_chunks:
-        print(c)
-        print('-------------------------')
+    
     return all_chunks
 
 # ============================================================
 # Document building for vector store
 # ============================================================
 
-def build_documents(md_path: Path, meta: DocMeta) -> List[Document]:
-    """Build LangChain documents from markdown file."""
+def build_documents(
+    md_path: Path,
+    meta: DocMeta,
+    max_chars: int = 1500,
+    overlap_chars: int = 300,
+    verbose: bool = True,
+) -> List[Document]:
+    """
+    Build LangChain documents from markdown file.
+    
+    Args:
+        md_path: Path to markdown file
+        meta: Document metadata
+        max_chars: Maximum characters per chunk
+        overlap_chars: Overlap between chunks for long sections
+        verbose: If True, print chunk information
+    
+    Returns:
+        List of Document objects
+    """
     text = md_path.read_text(encoding="utf-8", errors="ignore")
-    chunks = chunk_document(text)
+    chunks = chunk_document(text, max_chars=max_chars, overlap_chars=overlap_chars)
+
+    if verbose:
+        for c in chunks:
+            print(c)
+            print('-------------------------')
 
     documents = []
     for chunk in chunks:

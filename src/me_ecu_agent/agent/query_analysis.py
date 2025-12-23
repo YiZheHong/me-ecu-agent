@@ -156,19 +156,3 @@ def classify_query_intent(query: str) -> QueryIntent:
     # Treat as single_model query for the first mentioned model
     # (This is a fallback; most multi-model queries should have comparison keywords)
     return QueryIntent(intent_type="single_model", models=[models[0]])
-
-
-# -----------------------------
-# Convenience functions
-# -----------------------------
-
-def get_primary_model(query: str) -> Optional[str]:
-    """
-    Get the primary model from a query (the first mentioned).
-    
-    Returns None if no model is mentioned.
-    
-    This is useful for single_model queries or as a fallback.
-    """
-    models = extract_models_from_query(query)
-    return models[0] if models else None

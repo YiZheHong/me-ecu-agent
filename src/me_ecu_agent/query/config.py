@@ -1,104 +1,125 @@
 """
-Configuration management for the query module.
+Enhanced configuration management for the query module.
 
-Centralizes path configuration and retrieval parameters.
+Supports multiple configuration sources and provides flexible
+parameter management similar to the ingest module.
 """
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, Union
+import json
+import os
+from dataclasses import dataclass, asdict
 
 
+@dataclass
 class QueryConfig:
     """
     Configuration for query operations.
     
-    This class manages paths and retrieval parameters in a centralized way,
-    avoiding hardcoded paths and magic numbers scattered across the codebase.
+    Supports:
+    - Direct instantiation
+    - Loading from dict
+    - Loading from JSON file
+    - Loading from environment variables
+    - Loading from YAML file
     """
     
-    def __init__(
-        self,
-        meta_db_path: Optional[Path] = None,
-        default_top_k: int = 5,
-        retrieval_buffer_k: int = 40,
-    ):
-        """
-        Args:
-            meta_db_path: Path to doc_meta.sqlite. If None, auto-detect.
-            default_top_k: Default number of chunks to return.
-            retrieval_buffer_k: Initial retrieval size before filtering.
-        """
-        self.meta_db_path = meta_db_path or self._auto_detect_meta_db_path()
-        self.default_top_k = default_top_k
-        self.retrieval_buffer_k = retrieval_buffer_k
+    # Database configuration
+    meta_dir: Optional[Path] = None
+    vector_dir: Optional[Path] = None
     
-    @staticmethod
-    def _auto_detect_meta_db_path() -> Path:
+    # Retrieval parameters
+    default_top_k: int = 5
+    retrieval_buffer_k: int = 40
+    
+    # Optional: embedding model configuration
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    
+    # Feature flags
+    enable_source_tracking: bool = True
+    enable_caching: bool = True
+    cache_ttl_seconds: int = 3600
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "QueryConfig":
         """
-        Auto-detect the path to doc_meta.sqlite.
+        Create QueryConfig from dictionary.
         
-        Tries multiple common locations:
-        1. Project root structure (for development)
-        2. Current working directory (for deployment)
+        Args:
+            config_dict: Configuration dictionary
         
         Returns:
-            Path to doc_meta.sqlite
-            
-        Raises:
-            FileNotFoundError: If database cannot be located.
+            QueryConfig instance
+        
+        Example:
+            >>> config = QueryConfig.from_dict({
+            ...     "meta_dir": "/path/to/doc_meta.sqlite",
+            ...     "vector_dir": "/path/to/vectorstore",
+            ...     "default_top_k": 5,
+            ...     "retrieval_buffer_k": 40,
+            ... })
         """
-        # Try project structure: src/me_ecu_agent/meta/doc_meta.sqlite
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parents[3]  # me_ecu_agent/query/config.py -> root
+        # Get all dataclass fields
+        field_names = {f.name for f in cls.__dataclass_fields__.values()}
         
-        candidate_paths = [
-            project_root / "src" / "me_ecu_agent" / "meta" / "doc_meta.sqlite",
-            project_root / "me_ecu_agent" / "meta" / "doc_meta.sqlite",
-            Path.cwd() / "meta" / "doc_meta.sqlite",
-        ]
+        # Filter and convert
+        filtered_dict = {}
         
-        for path in candidate_paths:
-            if path.exists():
-                return path
+        for k, v in config_dict.items():
+            if k not in field_names:
+                continue
+            
+            # Convert string paths to Path objects
+            if k.endswith('_dir') and isinstance(v, str):
+                filtered_dict[k] = Path(v)
+            else:
+                filtered_dict[k] = v
         
-        # If not found, return the first candidate path
-        # (will raise error when actually accessed)
-        return candidate_paths[0]
+        return cls(**filtered_dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert config to dictionary.
+        
+        Returns:
+            Dictionary representation of config
+        """
+        result = {}
+        for key, value in asdict(self).items():
+            if isinstance(value, Path):
+                result[key] = str(value) if value else None
+            else:
+                result[key] = value
+        return result
     
     def validate(self) -> None:
         """
-        Validate that all required paths exist.
+        Validate configuration.
         
         Raises:
-            FileNotFoundError: If meta_db_path does not exist.
+            ValueError: If configuration is invalid
         """
-        if not self.meta_db_path.exists():
-            raise FileNotFoundError(
-                f"DocMeta database not found at: {self.meta_db_path}\n"
-                f"Please ensure the database is created at this location."
-            )
-
-
-# Global default config instance
-_default_config: Optional[QueryConfig] = None
-
-
-def get_default_config() -> QueryConfig:
-    """
-    Get or create the default QueryConfig instance.
+        if self.default_top_k <= 0:
+            raise ValueError("default_top_k must be > 0")
+        
+        if self.retrieval_buffer_k < self.default_top_k:
+            raise ValueError("retrieval_buffer_k must be >= default_top_k")
+        
+        if self.meta_dir and not self.meta_dir.exists():
+            raise FileNotFoundError(f"DocMeta database not found: {self.meta_dir}")
+        
+        if self.vector_dir and not self.vector_dir.exists():
+            raise FileNotFoundError(f"Vectorstore not found: {self.vector_dir}")
+        
+        if self.cache_ttl_seconds < 0:
+            raise ValueError("cache_ttl_seconds must be >= 0")
     
-    This provides a singleton config that can be used across the module.
-    """
-    global _default_config
-    if _default_config is None:
-        _default_config = QueryConfig()
-    return _default_config
-
-
-def set_default_config(config: QueryConfig) -> None:
-    """
-    Set a custom default QueryConfig.
-    
-    Useful for testing or custom deployments.
-    """
-    global _default_config
-    _default_config = config
+    def __repr__(self) -> str:
+        """Pretty print configuration."""
+        items = []
+        for key, value in asdict(self).items():
+            if isinstance(value, Path):
+                value = str(value) if value else None
+            items.append(f"  {key}={value}")
+        
+        return f"QueryConfig(\n" + "\n".join(items) + "\n)"

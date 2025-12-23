@@ -9,6 +9,7 @@ This module defines the agent workflow with support for:
 import time
 from typing import TypedDict, Callable, Optional, Dict, List
 from langgraph.graph import StateGraph, END
+from langchain_community.vectorstores import FAISS
 
 from me_ecu_agent.agent.query_analysis import classify_query_intent, QueryIntent
 from me_ecu_agent.agent.retrieval import (
@@ -23,6 +24,8 @@ from me_ecu_agent.agent.util import (
     format_contexts_for_compare,
 )
 from me_ecu_agent.query import query_chunks_by_model
+from me_ecu_agent.query.config import QueryConfig
+from me_ecu_agent.query.meta_store import MetaStore
 
 
 # -----------------------------
@@ -51,16 +54,17 @@ class AgentState(TypedDict):
 # Timing decorator
 # -----------------------------
 
-def timed_node(fn: Callable, node_name: str) -> Callable:
+def timed_node(fn: Callable, node_name: str, debug: bool = False) -> Callable:
     """
     Wrap a node function to measure and log execution time.
     """
     def wrapper(state):
-        start = time.perf_counter()
-        result = fn(state)
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        print(f"[LangGraph][{node_name}] {elapsed_ms:.2f}ms")
-        return result
+        if debug:
+            start = time.perf_counter()
+            result = fn(state)
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            print(f"[LangGraph][{node_name}] {elapsed_ms:.2f}ms")
+            return result
     return wrapper
 
 
@@ -231,7 +235,7 @@ def route_after_retrieval(state: AgentState) -> str:
 # Graph construction
 # -----------------------------
 
-def build_graph(vectorstore):
+def build_graph(vectorstore: FAISS, query_config: QueryConfig, meta_store: MetaStore) -> StateGraph:
     """
     Build and compile the LangGraph workflow.
     

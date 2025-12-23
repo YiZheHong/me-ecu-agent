@@ -3,6 +3,8 @@ MetaStore: Centralized loading and caching of document metadata.
 
 This module provides a cached interface to the doc_meta SQLite database,
 avoiding repeated database reads during query operations.
+The MetaStore is implemented as a singleton class - all instantiations
+return the same instance.
 """
 from typing import List, Dict
 from pathlib import Path
@@ -10,35 +12,62 @@ import sqlite3
 import json
 
 from me_ecu_agent.data_schema import DocMeta
-from me_ecu_agent.query.config import QueryConfig, get_default_config
+from me_ecu_agent.query.config import QueryConfig
 
 
 class MetaStore:
     """
-    A cached store for document metadata.
+    A cached store for document metadata with singleton pattern.
     
-    Loads DocMeta from SQLite once and provides fast in-memory access.
-    This class is designed to be instantiated once at application startup.
+    All instantiations return the same instance. Data is loaded from SQLite
+    automatically on first instantiation and cached in memory for fast access.
     """
+    
+    _instance = None
+    
+    def __new__(cls, config: QueryConfig = None):
+        """
+        Ensure only one MetaStore instance exists across the application.
+        
+        Args:
+            config: QueryConfig instance. Only used on first instantiation.
+        
+        Returns:
+            The singleton MetaStore instance.
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     
     def __init__(self, config: QueryConfig = None):
         """
+        Initialize the MetaStore. Only performs actual initialization on first call.
+        Subsequent calls are no-ops.
+        
         Args:
             config: QueryConfig instance. If None, uses default config.
         """
-        self.config = config or get_default_config()
-        self._metas: List[DocMeta] = []
-        self._metas_by_uid: Dict[str, DocMeta] = {}
-        self._loaded = False
+        # Only initialize once, even if __init__ is called multiple times
+        if not hasattr(self, '_config'):
+            self.config = config
+            self._metas: List[DocMeta] = []
+            self._metas_by_uid: Dict[str, DocMeta] = {}
+            self._loaded = False
+            # Automatically load data on first instantiation
+            self.load()
     
     def load(self) -> None:
         """
         Load all DocMeta from the database into memory.
         
-        This should be called once during initialization.
-        Subsequent calls will reload the data.
+        This is called automatically during initialization.
+        Calling it again will skip if data is already loaded.
         """
-        db_path = self.config.meta_db_path
+        # Skip if data is already loaded
+        if self._loaded:
+            return
+        
+        db_path = self.config.meta_dir / "doc_meta.sqlite"
         
         if not db_path.exists():
             raise FileNotFoundError(f"DocMeta database not found: {db_path}")
@@ -46,6 +75,7 @@ class MetaStore:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         
+        # Fetch all metadata from the database
         rows = cur.execute(
             """
             SELECT
@@ -63,7 +93,7 @@ class MetaStore:
         
         conn.close()
         
-        # Parse rows into DocMeta objects
+        # Parse rows into DocMeta objects and build lookup structures
         self._metas = []
         self._metas_by_uid = {}
         
@@ -91,61 +121,27 @@ class MetaStore:
             List of all DocMeta objects.
             
         Raises:
-            RuntimeError: If load() has not been called.
+            RuntimeError: If data loading failed.
         """
         if not self._loaded:
-            raise RuntimeError("MetaStore not loaded. Call load() first.")
+            raise RuntimeError("MetaStore failed to load data.")
         return self._metas
     
-    def get_by_uid(self, doc_uid: str) -> DocMeta:
-        """
-        Get a specific DocMeta by doc_uid.
-        
-        Args:
-            doc_uid: Document unique identifier.
-            
-        Returns:
-            DocMeta object.
-            
-        Raises:
-            KeyError: If doc_uid not found.
-            RuntimeError: If load() has not been called.
-        """
-        if not self._loaded:
-            raise RuntimeError("MetaStore not loaded. Call load() first.")
-        return self._metas_by_uid[doc_uid]
-    
     def is_loaded(self) -> bool:
-        """Check if the store has been loaded."""
+        """
+        Check if the metadata has been loaded from the database.
+        
+        Returns:
+            True if data is loaded, False otherwise.
+        """
         return self._loaded
-
-
-# Global singleton instance
-_global_store: MetaStore = None
-
-
-def get_meta_store(config: QueryConfig = None) -> MetaStore:
-    """
-    Get or create the global MetaStore instance.
-    
-    Args:
-        config: Optional QueryConfig. Only used on first call.
-    
-    Returns:
-        The global MetaStore instance.
-    """
-    global _global_store
-    if _global_store is None:
-        _global_store = MetaStore(config)
-        _global_store.load()
-    return _global_store
-
 
 def reset_meta_store() -> None:
     """
-    Reset the global MetaStore.
+    Reset the global MetaStore instance.
     
-    Useful for testing or when database content changes.
+    This removes the singleton instance, allowing a new one to be created
+    with potentially different configuration. Useful for testing or when
+    database content changes.
     """
-    global _global_store
-    _global_store = None
+    MetaStore._instance = None

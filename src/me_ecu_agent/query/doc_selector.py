@@ -8,27 +8,6 @@ inheritance rules.
 from typing import List
 from me_ecu_agent.data_schema import DocMeta
 
-
-def model_is_plus(model: str, metas: List[DocMeta]) -> bool:
-    """
-    Check whether a given model is a Plus model.
-    
-    A model is considered Plus if there exists a DocMeta
-    that explicitly covers this model and is marked as Plus.
-    
-    Args:
-        model: Model identifier (e.g., "ECU-850b").
-        metas: List of all DocMeta objects.
-    
-    Returns:
-        True if the model is Plus, False otherwise.
-    """
-    for meta in metas:
-        if model in meta.covered_models:
-            return meta.model_type == "Plus"
-    return False
-
-
 def docs_covering_model(model: str, metas: List[DocMeta]) -> List[DocMeta]:
     """
     Return all documents that directly cover the given model.
@@ -48,41 +27,6 @@ def docs_covering_model(model: str, metas: List[DocMeta]) -> List[DocMeta]:
         for meta in metas
         if model in meta.covered_models
     ]
-
-
-def base_doc_of_same_series(model: str, metas: List[DocMeta]) -> List[DocMeta]:
-    """
-    Return the Base document of the same series for a Plus model.
-    
-    This function implements the inheritance logic:
-    if a model is Plus, its Base document is also required
-    to provide the full capability baseline.
-    
-    Args:
-        model: Model identifier.
-        metas: List of all DocMeta objects.
-    
-    Returns:
-        List containing the Base document of the same series,
-        or empty list if the model is not Plus or no Base doc exists.
-    """
-    # Step 1: Find the series of this Plus model
-    series = None
-    for meta in metas:
-        if model in meta.covered_models and meta.model_type == "Plus":
-            series = meta.series
-            break
-    
-    if series is None:
-        return []
-    
-    # Step 2: Return the Base document of the same series
-    return [
-        meta
-        for meta in metas
-        if meta.series == series and meta.model_type == "Base"
-    ]
-
 
 def deduplicate_docs(docs: List[DocMeta]) -> List[DocMeta]:
     """
