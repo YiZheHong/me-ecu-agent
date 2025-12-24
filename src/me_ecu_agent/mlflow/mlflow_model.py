@@ -62,14 +62,35 @@ class ECUAgentWrapper(mlflow.pyfunc.PythonModel):
         logger.info("✓ ECU Agent loaded successfully")
     
     def predict(self, context, model_input):
-        """Run prediction on input queries."""
-        # Handle different input types
-        if isinstance(model_input, dict):
-            queries = [model_input.get("query", "")]
+        """
+        Run prediction on input queries.
+        
+        Supports multiple input formats:
+        - Dict: {"query": "..."}
+        - DataFrame: columns=['query']
+        - List of dicts: [{"query": "..."}, ...]
+        - MLflow dataframe_split format
+        """
+        # Handle MLflow dataframe_split format
+        if isinstance(model_input, dict) and "dataframe_split" in model_input:
+            # Extract queries from dataframe_split format
+            data = model_input["dataframe_split"]["data"]
+            queries = [row[0] if isinstance(row, list) else row for row in data]
+        
+        # Handle single dict
+        elif isinstance(model_input, dict) and "query" in model_input:
+            queries = [model_input["query"]]
+        
+        # Handle pandas DataFrame
         elif hasattr(model_input, 'to_dict'):
             queries = model_input['query'].tolist()
+        
+        # Handle list of dicts
+        elif isinstance(model_input, list):
+            queries = [q.get("query", "") if isinstance(q, dict) else str(q) for q in model_input]
+        
         else:
-            queries = [q.get("query", "") for q in model_input]
+            raise ValueError(f"Unsupported input format: {type(model_input)}")
         
         logger.info(f"Processing {len(queries)} queries...")
         
@@ -92,12 +113,11 @@ class ECUAgentWrapper(mlflow.pyfunc.PythonModel):
                     "models": "N/A",
                 })
         
-        # Return simple answers if single query
+        # Return format based on input
         if len(results) == 1:
             return results[0]["answer"]
         
         return results
-
 
 # ============================================================
 # Save/Load Functions
