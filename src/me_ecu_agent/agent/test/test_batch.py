@@ -32,7 +32,8 @@ from typing import List, Dict, Any, Optional
 from me_ecu_agent.ingest import ingest, IngestConfig
 from me_ecu_agent.query import QueryFactory
 from me_ecu_agent.agent.graph import build_graph
-
+from IPython.display import Image
+import io
 
 # ============================================================
 # CONFIGURATION

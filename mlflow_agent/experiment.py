@@ -364,7 +364,7 @@ def run_experiment(
             project_root = Path(__file__).parent.parent.resolve()             
             test_csv_path = project_root / "data" / test_csv
             
-            test_cases = load_test_questions(test_csv_path)[:1]
+            test_cases = load_test_questions(test_csv_path)
             logger.info("")
             
             # Run evaluation
@@ -506,14 +506,14 @@ if __name__ == "__main__":
         
         logger.info("")
         logger.info("="*80)
-        logger.info("🎉 EXPERIMENT COMPLETED!")
+        logger.info("EXPERIMENT COMPLETED!")
         logger.info(f"Run ID: {run_id}")
         logger.info("")
         logger.info("Next steps:")
-        logger.info("  1. View results: mlflow ui")
-        logger.info(f"  2. Load model: mlflow.pyfunc.load_model('runs:/{run_id}/ecu_agent')")
-        logger.info("="*80)
+        logger.info(f"  1. View results: from mlruns/1/{run_id}/artifacts/evaluation_results.csv")
+        logger.info(f"  2. Load model in your code using MLflow in main.py with run ID: {run_id}")
+
         
     except Exception as e:
-        logger.error(f"❌ EXPERIMENT FAILED: {e}")
+        logger.error(f"EXPERIMENT FAILED: {e}")
         exit(1)
