@@ -83,13 +83,11 @@ def get_default_config(project_root: Path) -> dict:
     Returns:
         Configuration dictionary
     """
-    data_dir = project_root / "data"
     vector_dir = project_root / "src" / "me_ecu_agent" / "rag"
     meta_dir = project_root / "src" / "me_ecu_agent" / "meta"
     
     return {
         "project_root": project_root,
-        "data_dir": data_dir,
         "vector_dir": vector_dir,
         "meta_dir": meta_dir,
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
