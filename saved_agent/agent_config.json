@@ -1,0 +1,18 @@
+{
+  "project_root": "D:\\Programming_Projects\\me-ecu-agent",
+  "data_dir": "D:\\Programming_Projects\\me-ecu-agent\\data",
+  "vector_dir": "D:\\Programming_Projects\\me-ecu-agent\\src\\me_ecu_agent\\rag",
+  "meta_dir": "D:\\Programming_Projects\\me-ecu-agent\\src\\me_ecu_agent\\meta",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "chunk_size": 1500,
+  "chunk_overlap": 150,
+  "default_top_k": 3,
+  "default_threshold_score": 1.5,
+  "retrieval_buffer_k": 40,
+  "generic_top_k": 5,
+  "compare_top_k": 3,
+  "single_model_top_k": 3,
+  "spec_top_k": 2,
+  "max_chars_per_model": 1000,
+  "max_chars_per_model_specs": 1000
+}

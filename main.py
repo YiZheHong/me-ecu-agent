@@ -1,15 +1,11 @@
-from me_ecu_agent.ingest.ingest import ingest
-from me_ecu_agent.agent.graph import build_graph
+from me_ecu_agent.mlflow.mlflow_model import load_agent_from_mlflow
 
-vectorstore = ingest(rebuild=True)
-# app = build_graph(vectorstore)
+model = load_agent_from_mlflow("c273982e66ee4dcf93faf67ff9ae8026")
+    
+print("✓ Agent loaded successfully from MLflow")
+print()
 
-# result = app.invoke(
-#     {
-#         "query": "How do you enable the NPU on the ECU-850b?",
-#         "context": "",
-#         "answer": "",
-#     }
-# )
-
-# print(result["answer"])
+# Test prediction
+print("Testing prediction...")
+result = model.predict({"query": "What is the CAN bus speed for ECU-850?"})
+print(f"Answer: {result}")
