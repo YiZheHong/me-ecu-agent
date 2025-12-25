@@ -91,3 +91,5 @@ cache/
 # ML artifacts
 # =====================
 mlruns*/
+scanner.py
+data/
