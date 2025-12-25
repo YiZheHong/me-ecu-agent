@@ -250,7 +250,12 @@ def run_evaluation(
     logger.info("="*80)
     
     # Save detailed results to CSV in artifact directory
-    artifact_path = get_artifact_path_for_run(run_id)
+    artifact_uri = str(get_artifact_path_for_run(run_id))
+
+    if artifact_uri.startswith('file:'):
+        artifact_path = Path(artifact_uri.replace('file:', '').lstrip('/'))
+    else:
+        artifact_path = Path(artifact_uri)
     
     # Ensure artifact directory exists
     artifact_path.mkdir(parents=True, exist_ok=True)
