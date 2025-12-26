@@ -13,9 +13,11 @@ setup(
         "langchain-core>=0.1.0",
         "langchain-community>=0.0.1",
         "langgraph>=0.0.1",
-        
         "langchain-huggingface>=1.0.0",  # HuggingFace embeddings
         "langchain-openai>=1.0.0",       # OpenAI LLM
+
+        # Embeddings
+        "sentence-transformers>=2.0.0",
         
         # Vector Store
         "faiss-cpu>=1.7.4",
