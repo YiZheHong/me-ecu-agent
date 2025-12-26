@@ -93,3 +93,4 @@ cache/
 mlruns*/
 scanner.py
 data/
+meta/

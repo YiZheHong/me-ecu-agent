@@ -62,8 +62,8 @@ def get_agent_config() -> dict:
         # Paths
         "project_root": project_root,
         "data_dir": project_root / "data",
-        "vector_dir": project_root / "src" / "me_ecu_agent" / "rag",
-        "meta_dir": project_root / "src" / "me_ecu_agent" / "meta",
+        "vector_dir": project_root / "rag",
+        "meta_dir": project_root / "meta",
         
         # Embedding & Chunking
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
