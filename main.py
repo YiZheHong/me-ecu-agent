@@ -38,7 +38,7 @@ def setup_logging(level: str = "INFO"):
 # ============================================================
 # Agent Setup
 # ============================================================
-def get_agent_config(project_root: Path) -> dict:
+def get_agent_config(project_root: Path, data_dir: Path) -> dict:
     """
     Get unified agent configuration for both ingest and query.
     
@@ -48,9 +48,9 @@ def get_agent_config(project_root: Path) -> dict:
     agent_config = {
         # Paths
         "project_root": project_root,
-        "data_dir": project_root / "data",
         "vector_dir": project_root / "rag",
         "meta_dir": project_root / "meta",
+        "data_dir": data_dir,
         
         # Embedding & Chunking
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
@@ -136,7 +136,8 @@ def main():
     
     # Initialize agent
     project_root = Path(__file__).parent.resolve()
-    agent_config = get_agent_config(project_root)
+    data_dir = project_root / "data"
+    agent_config = get_agent_config(project_root, data_dir)
     app = initialize_agent(agent_config, force_rebuild=False)
 
     while True:
